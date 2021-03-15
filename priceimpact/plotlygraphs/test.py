@@ -4,87 +4,67 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import plotly
+import pandas as pd
+import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from django_plotly_dash import DjangoDash
-# pip install pyorbital
-from pyorbital.orbital import Orbital
-satellite = Orbital('TERRA')
+from priceimpact.scrapingmodule import DataStream as ds
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
+
 app = DjangoDash("SimpleExample", external_stylesheets=external_stylesheets)
-app.layout = html.Div(
-    html.Div([
-        html.H4('TERRA Satellite Live Feed'),
-        html.Div(id='live-update-text'),
-        dcc.Graph(id='live-update-graph'),
-        dcc.Interval(
-            id='interval-component',
-            interval=1*1000, # in milliseconds
-            n_intervals=0
-        )
-    ])
-)
+app.layout = html.Div([
+    dcc.Graph(
+        id = 'candlestick-graph',
 
+    ),
+    dcc.Interval(
+        id='interval-component',
+        interval=1000,
+        n_intervals=0
+    )
+])
 
-@app.callback(Output('live-update-text', 'children'),
-              [Input('interval-component', 'n_intervals')])
-def update_metrics(n):
-    lon, lat, alt = satellite.get_lonlatalt(datetime.datetime.now())
-    style = {'padding': '5px', 'fontSize': '16px'}
-    return [
-        html.Span('Longitude: {0:.2f}'.format(lon), style=style),
-        html.Span('Latitude: {0:.2f}'.format(lat), style=style),
-        html.Span('Altitude: {0:0.2f}'.format(alt), style=style)
-    ]
-
-
-# Multiple components can update everytime interval gets fired.
-@app.callback(Output('live-update-graph', 'figure'),
+@app.callback(Output('candlestick-graph','figure'),
               [Input('interval-component', 'n_intervals')])
 def update_graph_live(n):
-    satellite = Orbital('TERRA')
     data = {
-        'time': [],
-        'Latitude': [],
-        'Longitude': [],
-        'Altitude': []
+        'time' : [],
+        'open' : [],
+        'high' : [],
+        'low' : [],
+        'close' : [],
+
     }
 
-    # Collect some data
-    for i in range(180):
-        time = datetime.datetime.now() - datetime.timedelta(seconds=i*20)
-        lon, lat, alt = satellite.get_lonlatalt(
-            time
-        )
-        data['Longitude'].append(lon)
-        data['Latitude'].append(lat)
-        data['Altitude'].append(alt)
+    df = ds.get_price_data("1m","BTCUSDT")
+    for i in range(800):
+        time = df["open_time"].iloc[i]
+        open = df["open"].iloc[i]
+        close = df["close"].iloc[i]
+        high = df["high"].iloc[i]
+        low = df["low"].iloc[i]
+
         data['time'].append(time)
+        data['open'].append(open)
+        data['close'].append(close)
+        data['high'].append(high)
+        data['low'].append(low)
+    layout = go.Layout(
+        title="My Dash Graph",
+        height=700
+    )
+    fig = plotly.tools.make_subplots(rows=2,cols=1,vertical_spacing = 0.2)
+    fig.layout = layout
 
-    # Create the graph with subplots
-    fig = plotly.tools.make_subplots(rows=2, cols=1, vertical_spacing=0.2)
-    fig['layout']['margin'] = {
-        'l': 30, 'r': 10, 'b': 30, 't': 10
-    }
-    fig['layout']['legend'] = {'x': 0, 'y': 1, 'xanchor': 'left'}
-
-    
-    fig.append_trace({
-        'x': data['time'],
-        'y': data['Altitude'],
-        'name': 'Altitude',
-        'mode': 'lines+markers',
-        'type': 'scatter'
-    }, 1, 1)
-    fig.append_trace({
-        'x': data['Longitude'],
-        'y': data['Latitude'],
-        'text': data['time'],
-        'name': 'Longitude vs Latitude',
-        'mode': 'lines+markers',
-        'type': 'scatter'
-    }, 2, 1)
-
+    fig.append_trace(
+        go.Candlestick(x=data['time'],
+                       open=data['open'],
+                       high=data['high'],
+                       low=data['low'],
+                       close=data['close']),
+        1,1
+    )
+    fig.update_layout(xaxis_rangeslider_visible=False)
     return fig
-
