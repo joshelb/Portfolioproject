@@ -9,9 +9,13 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from django_plotly_dash import DjangoDash
 from priceimpact.scrapingmodule import DataStream as ds
+from priceimpact.scrapingmodule import orderimpact
+import  numpy as np
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
+global orderlist
+orderlist = np.zeros(800)
 
 app = DjangoDash("SimpleExample", external_stylesheets=external_stylesheets)
 app.layout = html.Div([
@@ -21,7 +25,7 @@ app.layout = html.Div([
     ),
     dcc.Interval(
         id='interval-component',
-        interval=1000,
+        interval=10000,
         n_intervals=0
     )
 ])
@@ -35,10 +39,12 @@ def update_graph_live(n):
         'high' : [],
         'low' : [],
         'close' : [],
+        'orderdelta' : [],
 
     }
 
     df = ds.get_price_data("1m","BTCUSDT")
+    orderdf = ds.get_order_data("BTCUSDT")
     for i in range(800):
         time = df["open_time"].iloc[i]
         open = df["open"].iloc[i]
@@ -51,12 +57,19 @@ def update_graph_live(n):
         data['close'].append(close)
         data['high'].append(high)
         data['low'].append(low)
+
+    global orderlist
+    orderlist = orderimpact.rollingorderimpact(orderlist,orderimpact.calculateDelta(orderdf))
+    data['orderdelta'] = orderlist
+
+
+
     layout = go.Layout(
         title="My Dash Graph",
         height=700
     )
     fig = plotly.tools.make_subplots(rows=2,cols=1,vertical_spacing = 0.2)
-    fig.layout = layout
+    #fig.layout = layout
 
     fig.append_trace(
         go.Candlestick(x=data['time'],
@@ -66,5 +79,24 @@ def update_graph_live(n):
                        close=data['close']),
         1,1
     )
+    base = datetime.datetime.today()
+    dates = base - np.arange(180) * datetime.timedelta(days=1)
+    print(data['orderdelta'])
+
+
+    fig.append_trace(
+        go.Heatmap(
+
+            z = [data['orderdelta']],
+            x=np.arange(len(data['orderdelta'])),
+            colorscale='Viridis',
+        ),
+
+        2,1
+    )
+
+
+
+
     fig.update_layout(xaxis_rangeslider_visible=False)
     return fig
