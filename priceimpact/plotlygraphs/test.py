@@ -88,8 +88,10 @@ def update_graph_live(n):
         go.Heatmap(
 
             z = [data['orderdelta']],
-            x=np.arange(len(data['orderdelta'])),
+            x=data['time'],
             colorscale='Viridis',
+            zmin=-100,
+            zmax=100
         ),
 
         2,1

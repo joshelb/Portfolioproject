@@ -1,6 +1,9 @@
 from priceimpact.scrapingmodule import  DataStream as ds
 import  pandas as pd
 import numpy as np
+import time
+from priceimpact.models import orderdeltamodel
+
 
 df = ds.get_order_data("BTCUSDT")
 series = df[['qty','isBuyerMaker']]
@@ -20,5 +23,12 @@ def rollingorderimpact(empytylist,delta):
     return array
 
 
+
+def endless_loop():
+    while True:
+        data = ds.get_order_data("BTCUSDT")
+        model = orderdeltamodel(qty= data['qty'],buy= data['isBuyerMaker'],time= data['time'])
+        model.save()
+        time.sleep(2)
 
 

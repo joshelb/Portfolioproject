@@ -17,6 +17,7 @@ def get_order_data(market):
     data = requests.get(binance_order_data_link)
     parsed_data = json.loads(data.text)
     df = pd.DataFrame(parsed_data,columns=["id","price","qty","quoteQty","time","isBuyerMaker","isBestMatch"])
+    print(1)
     return df
 
 
@@ -37,3 +38,4 @@ def get_funding_data():
 """def convert_to_prettytime(timestamp):
     time = datetime.strptime(timestamp,"")
     return time"""
+
